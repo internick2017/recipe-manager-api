@@ -369,6 +369,6 @@ const doc = {
 };
 
 const outputFile = './swagger-output.json';
-const endpointsFiles = []; // Empty array since we're defining everything manually
+const endpointsFiles = ['./server.js']; // Include server.js to scan routes
 
 swaggerAutogen(outputFile, endpointsFiles, doc);

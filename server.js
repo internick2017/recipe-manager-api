@@ -3,7 +3,7 @@ const cors = require('cors');
 const { MongoClient } = require('mongodb');
 const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger-output.json');
+const swaggerDocument = require('./swagger-static.json');
 dotenv.config();
 
 const app = express();
