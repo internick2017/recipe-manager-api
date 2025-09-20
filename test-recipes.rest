@@ -1,0 +1,38 @@
+### Get all recipes
+GET http://localhost:3000/recipes
+
+### Create a new recipe
+POST http://localhost:3000/recipes
+Content-Type: application/json
+
+{
+  "name": "Spaghetti Carbonara",
+  "ingredients": ["Spaghetti", "Eggs", "Pancetta", "Parmesan", "Black Pepper"],
+  "instructions": "Cook spaghetti. Fry pancetta. Mix eggs and cheese. Combine all and season.",
+  "prepTime": 10,
+  "cookTime": 15,
+  "servings": 4,
+  "cuisine": "Italian",
+  "imageUrl": "https://example.com/carbonara.jpg"
+}
+
+### Get recipe by ID
+GET http://localhost:3000/recipes/{{recipeId}}
+
+### Update recipe
+PUT http://localhost:3000/recipes/{{recipeId}}
+Content-Type: application/json
+
+{
+  "name": "Spaghetti Carbonara",
+  "ingredients": ["Spaghetti", "Eggs", "Pancetta", "Parmesan", "Black Pepper"],
+  "instructions": "Cook spaghetti. Fry pancetta. Mix eggs and cheese. Combine all and season.",
+  "prepTime": 10,
+  "cookTime": 15,
+  "servings": 4,
+  "cuisine": "Italian",
+  "imageUrl": "https://example.com/carbonara.jpg"
+}
+
+### Delete recipe
+DELETE http://localhost:3000/recipes/{{recipeId}}
