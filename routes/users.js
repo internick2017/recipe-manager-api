@@ -34,6 +34,42 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create user
+/**
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Create a new user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "john_doe"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *               favoriteRecipes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: []
+ *                 description: Array of recipe IDs
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Server error
+ */
 router.post('/', async (req, res) => {
   const { error } = userSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
@@ -47,6 +83,51 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update user
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Update a user
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "john_doe_updated"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe.updated@example.com"
+ *               favoriteRecipes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["507f1f77bcf86cd799439011"]
+ *                 description: Array of recipe IDs
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 router.put('/:id', async (req, res) => {
   const { error } = userSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
