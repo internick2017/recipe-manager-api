@@ -29,14 +29,15 @@ console.log('Using memory store for sessions (debugging)');
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'default_secret',
-  resave: true, // Changed to true to force session save
+  resave: true,
   saveUninitialized: true,
   store: sessionStore,
   cookie: {
-    secure: false, // Temporarily disable secure for debugging
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
+    sameSite: 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
   }
 }));
 
@@ -105,31 +106,19 @@ async function start() {
     if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
       app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
 
-      // OAuth callback that returns data instead of redirecting
-      app.get('/auth/github/callback', (req, res, next) => {
-        console.log('=== OAUTH CALLBACK REACHED ===');
-        passport.authenticate('github', (err, user, info) => {
-          console.log('Passport authenticate result:');
-          console.log('- Error:', err);
-          console.log('- User:', user);
-          console.log('- Info:', info);
+      // OAuth callback with proper redirect flow
+      app.get('/auth/github/callback',
+        passport.authenticate('github', { failureRedirect: '/?error=oauth_failed' }),
+        (req, res) => {
+          console.log('=== OAUTH CALLBACK SUCCESS ===');
+          console.log('User from GitHub:', req.user);
           
-          if (err) {
-            console.error('OAuth error:', err);
-            return res.json({ error: 'OAuth error', details: err.message });
-          }
-          
-          if (!user) {
-            console.error('No user returned from GitHub');
-            return res.json({ error: 'No user returned from GitHub' });
-          }
-          
-          // Manually set session data
+          // Store user data in session
           req.session.user = {
-            id: user.id,
-            username: user.username || user.login,
-            displayName: user.displayName,
-            emails: user.emails,
+            id: req.user.id,
+            username: req.user.username || req.user.login,
+            displayName: req.user.displayName,
+            emails: req.user.emails,
             provider: 'github'
           };
           req.session.isAuthenticated = true;
@@ -137,25 +126,17 @@ async function start() {
           
           console.log('Session data set:', req.session);
           
-          // Save session explicitly
-          req.session.save((saveErr) => {
-            if (saveErr) {
-              console.error('Session save error:', saveErr);
-              return res.json({ error: 'Session save failed', details: saveErr.message });
+          // Force session save and redirect
+          req.session.save((err) => {
+            if (err) {
+              console.error('Session save error:', err);
+              return res.redirect('/?error=session_failed');
             }
-            console.log('Session saved successfully');
-            
-            // Return success response instead of redirecting
-            res.json({
-              success: true,
-              message: 'OAuth authentication successful',
-              user: req.user,
-              sessionId: req.sessionID,
-              redirectUrl: '/protected'
-            });
+            console.log('Session saved, redirecting to protected');
+            res.redirect('/protected');
           });
-        })(req, res, next);
-      });
+        }
+      );
     } else {
       // Fallback routes when OAuth is not configured
       app.get('/auth/github', (req, res) => {
@@ -168,7 +149,13 @@ async function start() {
     }
 
     app.get('/logout', (req, res) => {
-      req.logout(() => {
+      console.log('Logout requested');
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+          return res.status(500).json({ error: 'Logout failed' });
+        }
+        console.log('Session destroyed, redirecting to home');
         res.redirect('/');
       });
     });
