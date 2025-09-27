@@ -108,18 +108,33 @@ async function start() {
         console.log('OAuth callback - user:', req.user);
         console.log('OAuth callback - isAuthenticated:', req.isAuthenticated());
         
-        // Force session save and ensure user is in session
-        req.session.user = req.user;
-        req.session.isAuthenticated = true;
-        
-        req.session.save((err) => {
-          if (err) {
-            console.error('Session save error:', err);
-            return res.redirect('/?error=session_failed');
-          }
-          console.log('Session saved successfully, redirecting to protected');
-          res.redirect('/protected');
-        });
+        // Store user data directly in session
+        if (req.user) {
+          req.session.user = {
+            id: req.user.id,
+            username: req.user.username,
+            displayName: req.user.displayName,
+            emails: req.user.emails,
+            provider: req.user.provider
+          };
+          req.session.isAuthenticated = true;
+          req.session.authenticatedAt = new Date().toISOString();
+          
+          console.log('Storing user in session:', req.session.user);
+          
+          // Force session save
+          req.session.save((err) => {
+            if (err) {
+              console.error('Session save error:', err);
+              return res.redirect('/?error=session_failed');
+            }
+            console.log('Session saved successfully, redirecting to protected');
+            res.redirect('/protected');
+          });
+        } else {
+          console.error('No user data received from GitHub');
+          res.redirect('/?error=no_user_data');
+        }
       }
     );
     } else {
@@ -140,30 +155,26 @@ async function start() {
     });
 
     function ensureAuthenticated(req, res, next) {
-      console.log('Auth check - isAuthenticated:', req.isAuthenticated());
-      console.log('Auth check - user:', req.user);
       console.log('Auth check - session user:', req.session.user);
       console.log('Auth check - session isAuthenticated:', req.session.isAuthenticated);
+      console.log('Auth check - session ID:', req.sessionID);
       
-      // Check both Passport authentication and session data
-      const isAuth = req.isAuthenticated() || (req.session.isAuthenticated && req.session.user);
-      
-      if (isAuth) {
-        // Ensure user is available
-        if (!req.user && req.session.user) {
-          req.user = req.session.user;
-        }
+      // Check session-based authentication
+      if (req.session.isAuthenticated && req.session.user) {
+        // Set user for the request
+        req.user = req.session.user;
+        console.log('Authentication successful via session');
         return next();
       }
       
+      console.log('Authentication failed - no valid session');
       res.status(401).json({ 
         error: 'Unauthorized', 
         debug: {
-          isAuthenticated: req.isAuthenticated(),
-          hasUser: !!req.user,
           sessionId: req.sessionID,
           sessionUser: !!req.session.user,
-          sessionAuth: req.session.isAuthenticated
+          sessionAuth: req.session.isAuthenticated,
+          sessionKeys: Object.keys(req.session)
         }
       });
     }
@@ -175,13 +186,29 @@ async function start() {
     // Debug endpoint to check session status
     app.get('/debug/session', (req, res) => {
       res.json({
-        isAuthenticated: req.isAuthenticated(),
-        user: req.user,
         sessionId: req.sessionID,
         session: req.session,
         sessionUser: req.session.user,
         sessionAuth: req.session.isAuthenticated,
+        sessionKeys: Object.keys(req.session),
         cookies: req.cookies
+      });
+    });
+    
+    // Test endpoint to manually set session (for testing)
+    app.get('/test/auth', (req, res) => {
+      req.session.user = {
+        id: 'test123',
+        username: 'testuser',
+        displayName: 'Test User',
+        provider: 'test'
+      };
+      req.session.isAuthenticated = true;
+      req.session.save((err) => {
+        if (err) {
+          return res.json({ error: 'Session save failed', err });
+        }
+        res.json({ message: 'Test authentication set', user: req.session.user });
       });
     });
     
