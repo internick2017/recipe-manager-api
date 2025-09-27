@@ -1,15 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
+
 const { ObjectId } = require('mongodb');
+const bcrypt = require('bcrypt');
+
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: 'Unauthorized - Authentication required' });
+}
 
 const userSchema = Joi.object({
   username: Joi.string().required(),
   email: Joi.string().email().required(),
+  password: Joi.string().min(6).required(),
   favoriteRecipes: Joi.array().items(Joi.string())
 });
 
-// GET all users
 router.get('/', async (req, res) => {
   try {
     const db = req.app.locals.db;
@@ -20,7 +29,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET user by ID
 router.get('/:id', async (req, res) => {
   try {
     const db = req.app.locals.db;
@@ -33,7 +41,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST create user
 /**
  * @swagger
  * /users:
@@ -75,14 +82,36 @@ router.post('/', async (req, res) => {
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
     const db = req.app.locals.db;
-    const result = await db.collection('users').insertOne(req.body);
+    // Check if user already exists
+    const existing = await db.collection('users').findOne({ email: req.body.email });
+    if (existing) return res.status(400).json({ message: 'Email already registered' });
+    // Hash password
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const user = { ...req.body, password: hashedPassword };
+    const result = await db.collection('users').insertOne(user);
     res.status(201).json({ id: result.insertedId });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PUT update user
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
+  try {
+    const db = req.app.locals.db;
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(400).json({ message: 'Invalid email or password' });
+    // For demonstration, return user info (omit password)
+    const { password: pw, ...userInfo } = user;
+    res.json({ message: 'Login successful', user: userInfo });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 /**
  * @swagger
  * /users/{id}:
@@ -128,7 +157,7 @@ router.post('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', ensureAuthenticated, async (req, res) => {
   const { error } = userSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
@@ -145,8 +174,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE user
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', ensureAuthenticated, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const { id } = req.params;

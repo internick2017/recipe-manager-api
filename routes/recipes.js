@@ -11,10 +11,14 @@ const recipeSchema = Joi.object({
   cookTime: Joi.number().required(),
   servings: Joi.number().required(),
   cuisine: Joi.string().required(),
-  imageUrl: Joi.string().uri().required()
+  imageUrl: Joi.string().uri().required(),
+  difficulty: Joi.string().valid('Easy', 'Medium', 'Hard').required(),
+  tags: Joi.array().items(Joi.string()).default([]),
+  author: Joi.string().required(),
+  dateCreated: Joi.date().default(Date.now),
+  rating: Joi.number().min(1).max(5).default(0)
 });
 
-// GET all recipes
 router.get('/', async (req, res) => {
   try {
     const db = req.app.locals.db;
@@ -25,7 +29,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET recipe by ID
 router.get('/:id', async (req, res) => {
   try {
     const db = req.app.locals.db;
@@ -38,7 +41,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST create recipe
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: 'Unauthorized - Authentication required' });
+}
+
 /**
  * @swagger
  * /recipes:
@@ -95,7 +104,7 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', async (req, res) => {
+router.post('/', ensureAuthenticated, async (req, res) => {
   const { error } = recipeSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
@@ -107,7 +116,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT update recipe
 /**
  * @swagger
  * /recipes/{id}:
@@ -173,7 +181,7 @@ router.post('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', ensureAuthenticated, async (req, res) => {
   const { error } = recipeSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
@@ -190,8 +198,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE recipe
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', ensureAuthenticated, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const { id } = req.params;

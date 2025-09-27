@@ -1,4 +1,3 @@
-// Recipe model (for reference, not used by native driver)
 module.exports = {
   name: 'string',
   ingredients: 'array',
@@ -7,5 +6,10 @@ module.exports = {
   cookTime: 'number',
   servings: 'number',
   cuisine: 'string',
-  imageUrl: 'string'
+  imageUrl: 'string',
+  difficulty: 'string',
+  tags: 'array',
+  author: 'string',
+  dateCreated: 'date',
+  rating: 'number'
 };

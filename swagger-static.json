@@ -11,6 +11,64 @@
     "http"
   ],
   "paths": {
+    "/auth/github": {
+      "get": {
+        "summary": "Start GitHub OAuth login",
+        "description": "Redirects user to GitHub for authentication.",
+        "responses": {
+          "302": {
+            "description": "Redirect to GitHub OAuth login."
+          }
+        }
+      }
+    },
+    "/auth/github/callback": {
+      "get": {
+        "summary": "GitHub OAuth callback",
+        "description": "Callback endpoint for GitHub OAuth. Exchanges code for user profile.",
+        "responses": {
+          "302": {
+            "description": "Redirect to protected resource or error."
+          }
+        }
+      }
+    },
+    "/logout": {
+      "get": {
+        "summary": "Logout user",
+        "description": "Logs out the current user and ends the session.",
+        "responses": {
+          "302": {
+            "description": "Redirect to home."
+          }
+        }
+      }
+    },
+    "/protected": {
+      "get": {
+        "summary": "Protected route (requires authentication)",
+        "description": "Returns user info if authenticated. Requires GitHub OAuth.",
+        "security": [
+          { "githubOAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated user info.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": { "type": "string" },
+                "user": { "type": "object" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. User not authenticated.",
+            "schema": { "$ref": "#/definitions/Error" }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "API Root",
@@ -195,13 +253,27 @@
         }
       },
       "post": {
-        "summary": "Create a new user",
+        "summary": "Register a new user",
         "parameters": [
           {
             "in": "body",
             "name": "user",
             "required": true,
-            "schema": { "$ref": "#/definitions/User" }
+            "schema": {
+              "type": "object",
+              "required": ["username", "email", "password"],
+              "properties": {
+                "username": { "type": "string", "example": "john_doe" },
+                "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                "password": { "type": "string", "format": "password", "example": "yourPassword123" },
+                "favoriteRecipes": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "example": [],
+                  "description": "Array of recipe IDs"
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -215,7 +287,47 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error or email already registered",
+            "schema": { "$ref": "#/definitions/Error" }
+          },
+          "500": {
+            "description": "Server error",
+            "schema": { "$ref": "#/definitions/Error" }
+          }
+        }
+      }
+    },
+    "/users/login": {
+      "post": {
+        "summary": "Login user with email and password",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "credentials",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["email", "password"],
+              "properties": {
+                "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                "password": { "type": "string", "format": "password", "example": "yourPassword123" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": { "type": "string", "example": "Login successful" },
+                "user": { "$ref": "#/definitions/User" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or password",
             "schema": { "$ref": "#/definitions/Error" }
           },
           "500": {
@@ -327,9 +439,17 @@
     }
   },
   "definitions": {
+    "githubOAuth": {
+      "type": "oauth2",
+      "authorizationUrl": "https://github.com/login/oauth/authorize",
+      "flow": "implicit",
+      "scopes": {
+        "user:email": "Access user email address"
+      }
+    },
     "Recipe": {
       "type": "object",
-      "required": ["name", "ingredients", "instructions", "prepTime", "cookTime", "servings", "cuisine", "imageUrl"],
+      "required": ["name", "ingredients", "instructions", "prepTime", "cookTime", "servings", "cuisine", "imageUrl", "difficulty", "author"],
       "properties": {
         "name": { "type": "string", "example": "Spaghetti Carbonara" },
         "ingredients": {
@@ -342,7 +462,12 @@
         "cookTime": { "type": "number", "example": 15 },
         "servings": { "type": "number", "example": 4 },
         "cuisine": { "type": "string", "example": "Italian" },
-        "imageUrl": { "type": "string", "format": "uri", "example": "https://example.com/spaghetti-carbonara.jpg" }
+        "imageUrl": { "type": "string", "format": "uri", "example": "https://example.com/spaghetti-carbonara.jpg" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"], "example": "Medium" },
+        "tags": { "type": "array", "items": { "type": "string" }, "example": ["pasta", "italian", "comfort-food"] },
+        "author": { "type": "string", "example": "Chef Mario" },
+        "dateCreated": { "type": "string", "format": "date-time", "example": "2024-01-15T10:30:00Z" },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5, "example": 4.5 }
       }
     },
     "User": {

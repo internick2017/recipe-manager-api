@@ -13,7 +13,10 @@ Content-Type: application/json
   "cookTime": 15,
   "servings": 4,
   "cuisine": "Italian",
-  "imageUrl": "https://example.com/carbonara.jpg"
+  "imageUrl": "https://example.com/carbonara.jpg",
+  "difficulty": "Medium",
+  "tags": ["pasta", "italian"],
+  "author": "Chef Mario"
 }
 
 ### Get recipe by ID
@@ -31,7 +34,10 @@ Content-Type: application/json
   "cookTime": 15,
   "servings": 4,
   "cuisine": "Italian",
-  "imageUrl": "https://example.com/carbonara.jpg"
+  "imageUrl": "https://example.com/carbonara.jpg",
+  "difficulty": "Medium",
+  "tags": ["pasta", "italian"],
+  "author": "Chef Mario"
 }
 
 ### Delete recipe

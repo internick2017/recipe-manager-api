@@ -1,0 +1,90 @@
+### Recipe Manager API Tests
+
+### API Root
+GET http://localhost:3000/
+
+### Get All Recipes
+GET http://localhost:3000/recipes
+
+### Get All Users
+GET http://localhost:3000/users
+
+### Create Recipe (Protected)
+POST http://localhost:3000/recipes
+Content-Type: application/json
+
+{
+  "name": "Test Recipe",
+  "ingredients": ["ingredient1", "ingredient2"],
+  "instructions": "Test instructions",
+  "prepTime": 10,
+  "cookTime": 20,
+  "servings": 4,
+  "cuisine": "Test",
+  "imageUrl": "https://example.com/test.jpg",
+  "difficulty": "Easy",
+  "tags": ["test"],
+  "author": "Test Author"
+}
+
+### Create User
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### User Login
+POST http://localhost:3000/users/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### GitHub OAuth Login
+GET http://localhost:3000/auth/github
+
+### Protected Route
+GET http://localhost:3000/protected
+
+### Update Recipe (Protected)
+PUT http://localhost:3000/recipes/{{recipeId}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Recipe",
+  "ingredients": ["updated ingredient1", "updated ingredient2"],
+  "instructions": "Updated test instructions",
+  "prepTime": 15,
+  "cookTime": 25,
+  "servings": 6,
+  "cuisine": "Updated Test",
+  "imageUrl": "https://example.com/updated-test.jpg",
+  "difficulty": "Medium",
+  "tags": ["updated", "test"],
+  "author": "Updated Test Author"
+}
+
+### Delete Recipe (Protected)
+DELETE http://localhost:3000/recipes/{{recipeId}}
+
+### Update User (Protected)
+PUT http://localhost:3000/users/{{userId}}
+Content-Type: application/json
+
+{
+  "username": "updatedtestuser",
+  "email": "updated@example.com",
+  "favoriteRecipes": []
+}
+
+### Delete User (Protected)
+DELETE http://localhost:3000/users/{{userId}}
+
+### Swagger Documentation
+GET http://localhost:3000/api-docs
