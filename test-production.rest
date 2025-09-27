@@ -1,0 +1,57 @@
+### Production API Tests
+### Replace YOUR_APP_NAME with your actual Render app name
+
+### API Root
+GET https://your-app-name.onrender.com/
+
+### Get All Recipes
+GET https://your-app-name.onrender.com/recipes
+
+### Get All Users
+GET https://your-app-name.onrender.com/users
+
+### Create Recipe (Protected)
+POST https://your-app-name.onrender.com/recipes
+Content-Type: application/json
+
+{
+  "name": "Production Test Recipe",
+  "ingredients": ["ingredient1", "ingredient2"],
+  "instructions": "Test instructions for production",
+  "prepTime": 10,
+  "cookTime": 20,
+  "servings": 4,
+  "cuisine": "Test",
+  "imageUrl": "https://example.com/test.jpg",
+  "difficulty": "Easy",
+  "tags": ["test", "production"],
+  "author": "Production Test Author"
+}
+
+### Create User
+POST https://your-app-name.onrender.com/users
+Content-Type: application/json
+
+{
+  "username": "prodtestuser",
+  "email": "prodtest@example.com",
+  "password": "password123"
+}
+
+### User Login
+POST https://your-app-name.onrender.com/users/login
+Content-Type: application/json
+
+{
+  "email": "prodtest@example.com",
+  "password": "password123"
+}
+
+### GitHub OAuth Login
+GET https://your-app-name.onrender.com/auth/github
+
+### Protected Route
+GET https://your-app-name.onrender.com/protected
+
+### Swagger Documentation
+GET https://your-app-name.onrender.com/api-docs

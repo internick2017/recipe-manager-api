@@ -18,22 +18,26 @@ A Node.js REST API for managing recipes and users with OAuth authentication.
 ## Setup Instructions
 
 ### 1. Environment Variables
-Create a `.env` file in the root directory with the following variables:
 
+#### Local Development (.env file):
 ```env
-# MongoDB Connection
+NODE_ENV=development
 MONGODB_URI=mongodb+srv://your-username:your-password@your-cluster.mongodb.net/recipe-manager?retryWrites=true&w=majority
-
-# Session Secret
 SESSION_SECRET=your-super-secret-session-key-here
-
-# GitHub OAuth Configuration
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
-
-# Server Configuration
 PORT=3000
+```
+
+#### Production (Render Environment Variables):
+```
+NODE_ENV=production
+MONGODB_URI=mongodb+srv://your-username:your-password@your-cluster.mongodb.net/recipe-manager?retryWrites=true&w=majority
+SESSION_SECRET=your-super-secret-session-key-here
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_CALLBACK_URL=https://your-app-name.onrender.com/auth/github/callback
 ```
 
 ### 2. Install Dependencies
