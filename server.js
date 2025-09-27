@@ -10,6 +10,7 @@ const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const GitHubStrategy = require('passport-github2').Strategy;
 const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 dotenv.config();
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // DISABLE MongoDB session store temporarily - use memory store
 let sessionStore = undefined; // Force memory store for debugging
@@ -158,24 +160,24 @@ async function start() {
     });
 
     function ensureAuthenticated(req, res, next) {
-      console.log('Auth check - cookies:', req.cookies);
-      console.log('Auth check - auth_token:', req.cookies.auth_token);
-      
-      // Check JWT token from cookie
-      const token = req.cookies.auth_token;
-      
-      if (!token) {
-        console.log('No auth token found');
-        return res.status(401).json({ 
-          error: 'Unauthorized - No authentication token',
-          debug: {
-            hasToken: false,
-            cookies: Object.keys(req.cookies)
-          }
-        });
-      }
-      
       try {
+        console.log('Auth check - cookies:', req.cookies);
+        console.log('Auth check - auth_token:', req.cookies.auth_token);
+        
+        // Check JWT token from cookie
+        const token = req.cookies.auth_token;
+        
+        if (!token) {
+          console.log('No auth token found');
+          return res.status(401).json({ 
+            error: 'Unauthorized - No authentication token',
+            debug: {
+              hasToken: false,
+              cookies: Object.keys(req.cookies || {})
+            }
+          });
+        }
+        
         const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'default_secret');
         req.user = decoded;
         console.log('Authentication successful via JWT:', decoded);
@@ -342,6 +344,25 @@ async function start() {
     
     app.get('/', (req, res) => {
       res.json({ message: 'Recipe Manager API', version: '1.0.0' });
+    });
+
+    // Simple test endpoint
+    app.get('/test', (req, res) => {
+      res.json({ 
+        message: 'Server is working!', 
+        cookies: req.cookies,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Global error handler
+    app.use((err, req, res, next) => {
+      console.error('Global error handler:', err);
+      res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
     });
 
     app.listen(PORT, () => {
