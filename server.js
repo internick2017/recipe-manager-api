@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-app-name.onrender.com'] 
+    ? ['https://recipe-manager-api-tlmf.onrender.com'] 
     : ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true
 }));
@@ -81,7 +81,18 @@ async function start() {
     app.locals.db = db;
     console.log('Connected to MongoDB');
 
-    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    // Dynamic Swagger configuration
+    const swaggerConfig = {
+      ...swaggerDocument,
+      host: process.env.NODE_ENV === 'production' 
+        ? 'recipe-manager-api-tlmf.onrender.com'
+        : 'localhost:3000',
+      schemes: process.env.NODE_ENV === 'production' 
+        ? ['https'] 
+        : ['http']
+    };
+    
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerConfig));
 
     app.use('/recipes', require('./routes/recipes'));
     app.use('/users', require('./routes/users'));

@@ -14,10 +14,29 @@
     "/auth/github": {
       "get": {
         "summary": "Start GitHub OAuth login",
-        "description": "Redirects user to GitHub for authentication.",
+        "description": "Redirects user to GitHub for authentication. This endpoint should be accessed directly in the browser, not through Swagger UI.",
+        "tags": ["Authentication"],
         "responses": {
           "302": {
-            "description": "Redirect to GitHub OAuth login."
+            "description": "Redirect to GitHub OAuth login.",
+            "headers": {
+              "Location": {
+                "description": "GitHub OAuth authorization URL",
+                "type": "string"
+              }
+            }
+          },
+          "503": {
+            "description": "GitHub OAuth not configured",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "GitHub OAuth not configured"
+                }
+              }
+            }
           }
         }
       }
@@ -25,10 +44,29 @@
     "/auth/github/callback": {
       "get": {
         "summary": "GitHub OAuth callback",
-        "description": "Callback endpoint for GitHub OAuth. Exchanges code for user profile.",
+        "description": "Callback endpoint for GitHub OAuth. This is automatically called by GitHub after user authorization. Do not call this endpoint directly.",
+        "tags": ["Authentication"],
         "responses": {
           "302": {
-            "description": "Redirect to protected resource or error."
+            "description": "Redirect to protected resource or error.",
+            "headers": {
+              "Location": {
+                "description": "Redirect URL after authentication",
+                "type": "string"
+              }
+            }
+          },
+          "503": {
+            "description": "GitHub OAuth not configured",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "GitHub OAuth not configured"
+                }
+              }
+            }
           }
         }
       }
