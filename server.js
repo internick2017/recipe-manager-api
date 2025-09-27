@@ -105,12 +105,19 @@ async function start() {
     app.get('/auth/github/callback',
       passport.authenticate('github', { failureRedirect: '/?error=oauth_failed' }),
       (req, res) => {
-        // Ensure session is saved before redirect
+        console.log('OAuth callback - user:', req.user);
+        console.log('OAuth callback - isAuthenticated:', req.isAuthenticated());
+        
+        // Force session save and ensure user is in session
+        req.session.user = req.user;
+        req.session.isAuthenticated = true;
+        
         req.session.save((err) => {
           if (err) {
             console.error('Session save error:', err);
             return res.redirect('/?error=session_failed');
           }
+          console.log('Session saved successfully, redirecting to protected');
           res.redirect('/protected');
         });
       }
@@ -135,17 +142,28 @@ async function start() {
     function ensureAuthenticated(req, res, next) {
       console.log('Auth check - isAuthenticated:', req.isAuthenticated());
       console.log('Auth check - user:', req.user);
-      console.log('Auth check - session:', req.session);
+      console.log('Auth check - session user:', req.session.user);
+      console.log('Auth check - session isAuthenticated:', req.session.isAuthenticated);
       
-      if (req.isAuthenticated()) {
+      // Check both Passport authentication and session data
+      const isAuth = req.isAuthenticated() || (req.session.isAuthenticated && req.session.user);
+      
+      if (isAuth) {
+        // Ensure user is available
+        if (!req.user && req.session.user) {
+          req.user = req.session.user;
+        }
         return next();
       }
+      
       res.status(401).json({ 
         error: 'Unauthorized', 
         debug: {
           isAuthenticated: req.isAuthenticated(),
           hasUser: !!req.user,
-          sessionId: req.sessionID
+          sessionId: req.sessionID,
+          sessionUser: !!req.session.user,
+          sessionAuth: req.session.isAuthenticated
         }
       });
     }
@@ -161,6 +179,8 @@ async function start() {
         user: req.user,
         sessionId: req.sessionID,
         session: req.session,
+        sessionUser: req.session.user,
+        sessionAuth: req.session.isAuthenticated,
         cookies: req.cookies
       });
     });
