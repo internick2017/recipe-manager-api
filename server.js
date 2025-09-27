@@ -29,16 +29,24 @@ console.log('Using memory store for sessions (debugging)');
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'default_secret',
-  resave: false,
-  saveUninitialized: true, // Changed to true for OAuth
+  resave: true, // Changed to true to force session save
+  saveUninitialized: true,
   store: sessionStore,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Temporarily disable secure for debugging
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax' // Changed: OAuth flow is same-origin, not cross-origin
+    sameSite: 'lax'
   }
 }));
+
+// Debug middleware to log session on every request
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.url} - Session ID: ${req.sessionID}`);
+  console.log('Session data:', req.session);
+  console.log('Session keys:', Object.keys(req.session));
+  next();
+});
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -217,6 +225,9 @@ async function start() {
     
     // Simple bypass for OAuth testing
     app.get('/test/bypass', (req, res) => {
+      console.log('=== BYPASS TEST START ===');
+      console.log('Session before:', req.session);
+      
       req.session.user = {
         id: 'github123',
         username: 'githubuser',
@@ -224,11 +235,41 @@ async function start() {
         provider: 'github'
       };
       req.session.isAuthenticated = true;
+      
+      console.log('Session after setting data:', req.session);
+      
       req.session.save((err) => {
         if (err) {
-          return res.json({ error: 'Session save failed', err });
+          console.error('Session save error:', err);
+          return res.json({ error: 'Session save failed', err: err.message });
         }
+        console.log('Session saved successfully, redirecting...');
+        console.log('=== BYPASS TEST END ===');
         res.redirect('/protected');
+      });
+    });
+    
+    // Test without redirect to see if session persists
+    app.get('/test/direct', (req, res) => {
+      req.session.user = {
+        id: 'direct123',
+        username: 'directuser',
+        displayName: 'Direct User',
+        provider: 'direct'
+      };
+      req.session.isAuthenticated = true;
+      
+      req.session.save((err) => {
+        if (err) {
+          return res.json({ error: 'Session save failed', err: err.message });
+        }
+        // Return session data instead of redirecting
+        res.json({
+          message: 'Session set directly',
+          sessionId: req.sessionID,
+          sessionData: req.session,
+          sessionKeys: Object.keys(req.session)
+        });
       });
     });
     
