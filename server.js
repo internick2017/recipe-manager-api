@@ -35,12 +35,13 @@ if (process.env.MONGODB_URI) {
 app.use(session({
   secret: process.env.SESSION_SECRET || 'default_secret',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Changed to true for OAuth
   store: sessionStore,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Fix for cross-origin
   }
 }));
 
@@ -101,12 +102,19 @@ async function start() {
     if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
       app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
 
-      app.get('/auth/github/callback',
-        passport.authenticate('github', { failureRedirect: '/' }),
-        (req, res) => {
+    app.get('/auth/github/callback',
+      passport.authenticate('github', { failureRedirect: '/?error=oauth_failed' }),
+      (req, res) => {
+        // Ensure session is saved before redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.redirect('/?error=session_failed');
+          }
           res.redirect('/protected');
-        }
-      );
+        });
+      }
+    );
     } else {
       // Fallback routes when OAuth is not configured
       app.get('/auth/github', (req, res) => {
@@ -125,15 +133,38 @@ async function start() {
     });
 
     function ensureAuthenticated(req, res, next) {
+      console.log('Auth check - isAuthenticated:', req.isAuthenticated());
+      console.log('Auth check - user:', req.user);
+      console.log('Auth check - session:', req.session);
+      
       if (req.isAuthenticated()) {
         return next();
       }
-      res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ 
+        error: 'Unauthorized', 
+        debug: {
+          isAuthenticated: req.isAuthenticated(),
+          hasUser: !!req.user,
+          sessionId: req.sessionID
+        }
+      });
     }
 
     app.get('/protected', ensureAuthenticated, (req, res) => {
       res.json({ message: 'You are authenticated!', user: req.user });
     });
+    
+    // Debug endpoint to check session status
+    app.get('/debug/session', (req, res) => {
+      res.json({
+        isAuthenticated: req.isAuthenticated(),
+        user: req.user,
+        sessionId: req.sessionID,
+        session: req.session,
+        cookies: req.cookies
+      });
+    });
+    
     app.get('/', (req, res) => {
       res.json({ message: 'Recipe Manager API', version: '1.0.0' });
     });
