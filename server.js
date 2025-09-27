@@ -105,8 +105,10 @@ async function start() {
     app.get('/auth/github/callback',
       passport.authenticate('github', { failureRedirect: '/?error=oauth_failed' }),
       (req, res) => {
+        console.log('=== OAUTH CALLBACK START ===');
         console.log('OAuth callback - user:', req.user);
         console.log('OAuth callback - isAuthenticated:', req.isAuthenticated());
+        console.log('OAuth callback - session before:', req.session);
         
         // Store user data directly in session
         if (req.user) {
@@ -121,6 +123,7 @@ async function start() {
           req.session.authenticatedAt = new Date().toISOString();
           
           console.log('Storing user in session:', req.session.user);
+          console.log('Session after setting user:', req.session);
           
           // Force session save
           req.session.save((err) => {
@@ -129,10 +132,12 @@ async function start() {
               return res.redirect('/?error=session_failed');
             }
             console.log('Session saved successfully, redirecting to protected');
+            console.log('=== OAUTH CALLBACK END ===');
             res.redirect('/protected');
           });
         } else {
           console.error('No user data received from GitHub');
+          console.log('=== OAUTH CALLBACK END (NO USER) ===');
           res.redirect('/?error=no_user_data');
         }
       }
@@ -209,6 +214,18 @@ async function start() {
           return res.json({ error: 'Session save failed', err });
         }
         res.json({ message: 'Test authentication set', user: req.session.user });
+      });
+    });
+    
+    // Test endpoint to check if OAuth callback is working
+    app.get('/test/oauth', (req, res) => {
+      res.json({
+        message: 'OAuth test endpoint',
+        hasClientId: !!process.env.GITHUB_CLIENT_ID,
+        hasClientSecret: !!process.env.GITHUB_CLIENT_SECRET,
+        hasCallbackUrl: !!process.env.GITHUB_CALLBACK_URL,
+        clientId: process.env.GITHUB_CLIENT_ID,
+        callbackUrl: process.env.GITHUB_CALLBACK_URL
       });
     });
     
