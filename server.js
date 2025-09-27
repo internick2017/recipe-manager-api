@@ -26,10 +26,19 @@ app.use(express.json());
 // Configure session store
 let sessionStore;
 if (process.env.MONGODB_URI) {
-  sessionStore = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600 // lazy session update
-  });
+  try {
+    sessionStore = MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      touchAfter: 24 * 3600, // lazy session update
+      ttl: 24 * 60 * 60 // 24 hours
+    });
+    console.log('MongoDB session store configured');
+  } catch (error) {
+    console.error('MongoDB session store failed, using memory store:', error);
+    sessionStore = undefined; // Will use memory store
+  }
+} else {
+  console.log('No MongoDB URI, using memory store');
 }
 
 app.use(session({
@@ -41,7 +50,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Fix for cross-origin
+    sameSite: 'lax' // Changed: OAuth flow is same-origin, not cross-origin
   }
 }));
 
@@ -226,6 +235,27 @@ async function start() {
         hasCallbackUrl: !!process.env.GITHUB_CALLBACK_URL,
         clientId: process.env.GITHUB_CLIENT_ID,
         callbackUrl: process.env.GITHUB_CALLBACK_URL
+      });
+    });
+    
+    // Test endpoint to check session persistence
+    app.get('/test/session', (req, res) => {
+      const testKey = 'testValue';
+      const testValue = `test-${Date.now()}`;
+      
+      // Set a test value in session
+      req.session[testKey] = testValue;
+      req.session.save((err) => {
+        if (err) {
+          return res.json({ error: 'Session save failed', err: err.message });
+        }
+        res.json({
+          message: 'Session test',
+          sessionId: req.sessionID,
+          testValue: req.session[testKey],
+          sessionKeys: Object.keys(req.session),
+          sessionStore: sessionStore ? 'MongoDB' : 'Memory'
+        });
       });
     });
     
