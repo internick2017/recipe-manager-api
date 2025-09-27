@@ -9,6 +9,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const GitHubStrategy = require('passport-github2').Strategy;
+const jwt = require('jsonwebtoken');
 dotenv.config();
 
 const app = express();
@@ -106,35 +107,35 @@ async function start() {
     if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
       app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
 
-      // OAuth callback with proper redirect flow
+      // OAuth callback with JWT token approach
       app.get('/auth/github/callback',
         passport.authenticate('github', { failureRedirect: '/?error=oauth_failed' }),
         (req, res) => {
           console.log('=== OAUTH CALLBACK SUCCESS ===');
           console.log('User from GitHub:', req.user);
           
-          // Store user data in session
-          req.session.user = {
+          // Create JWT token
+          const userData = {
             id: req.user.id,
             username: req.user.username || req.user.login,
             displayName: req.user.displayName,
             emails: req.user.emails,
             provider: 'github'
           };
-          req.session.isAuthenticated = true;
-          req.session.authenticatedAt = new Date().toISOString();
           
-          console.log('Session data set:', req.session);
+          const token = jwt.sign(userData, process.env.SESSION_SECRET || 'default_secret', { expiresIn: '24h' });
           
-          // Force session save and redirect
-          req.session.save((err) => {
-            if (err) {
-              console.error('Session save error:', err);
-              return res.redirect('/?error=session_failed');
-            }
-            console.log('Session saved, redirecting to protected');
-            res.redirect('/protected');
+          console.log('JWT token created for user:', userData);
+          
+          // Set token in cookie and redirect
+          res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            sameSite: 'lax'
           });
+          
+          res.redirect('/protected');
         }
       );
     } else {
@@ -150,41 +151,45 @@ async function start() {
 
     app.get('/logout', (req, res) => {
       console.log('Logout requested');
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Session destroy error:', err);
-          return res.status(500).json({ error: 'Logout failed' });
-        }
-        console.log('Session destroyed, redirecting to home');
-        res.redirect('/');
-      });
+      // Clear the auth token cookie
+      res.clearCookie('auth_token');
+      console.log('Auth token cleared, redirecting to home');
+      res.redirect('/');
     });
 
     function ensureAuthenticated(req, res, next) {
-      console.log('Auth check - session user:', req.session.user);
-      console.log('Auth check - session isAuthenticated:', req.session.isAuthenticated);
-      console.log('Auth check - session ID:', req.sessionID);
-      console.log('Auth check - session keys:', Object.keys(req.session));
+      console.log('Auth check - cookies:', req.cookies);
+      console.log('Auth check - auth_token:', req.cookies.auth_token);
       
-      // Check session-based authentication
-      if (req.session.isAuthenticated && req.session.user) {
-        // Set user for the request
-        req.user = req.session.user;
-        console.log('Authentication successful via session');
-        return next();
+      // Check JWT token from cookie
+      const token = req.cookies.auth_token;
+      
+      if (!token) {
+        console.log('No auth token found');
+        return res.status(401).json({ 
+          error: 'Unauthorized - No authentication token',
+          debug: {
+            hasToken: false,
+            cookies: Object.keys(req.cookies)
+          }
+        });
       }
       
-      console.log('Authentication failed - no valid session');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
-        debug: {
-          sessionId: req.sessionID,
-          sessionUser: !!req.session.user,
-          sessionAuth: req.session.isAuthenticated,
-          sessionKeys: Object.keys(req.session),
-          fullSession: req.session
-        }
-      });
+      try {
+        const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'default_secret');
+        req.user = decoded;
+        console.log('Authentication successful via JWT:', decoded);
+        return next();
+      } catch (err) {
+        console.log('JWT verification failed:', err.message);
+        return res.status(401).json({ 
+          error: 'Unauthorized - Invalid token',
+          debug: {
+            hasToken: true,
+            tokenError: err.message
+          }
+        });
+      }
     }
 
     app.get('/protected', ensureAuthenticated, (req, res) => {
@@ -220,30 +225,32 @@ async function start() {
       });
     });
     
-    // Simple bypass for OAuth testing
-    app.get('/test/bypass', (req, res) => {
-      console.log('=== BYPASS TEST START ===');
-      console.log('Session before:', req.session);
+    // JWT token test endpoint
+    app.get('/test/jwt', (req, res) => {
+      console.log('=== JWT TEST START ===');
       
-      req.session.user = {
-        id: 'github123',
-        username: 'githubuser',
-        displayName: 'GitHub User',
-        provider: 'github'
+      const userData = {
+        id: 'test123',
+        username: 'testuser',
+        displayName: 'Test User',
+        provider: 'test'
       };
-      req.session.isAuthenticated = true;
       
-      console.log('Session after setting data:', req.session);
+      const token = jwt.sign(userData, process.env.SESSION_SECRET || 'default_secret', { expiresIn: '24h' });
       
-      req.session.save((err) => {
-        if (err) {
-          console.error('Session save error:', err);
-          return res.json({ error: 'Session save failed', err: err.message });
-        }
-        console.log('Session saved successfully, redirecting...');
-        console.log('=== BYPASS TEST END ===');
-        res.redirect('/protected');
+      console.log('JWT token created:', token);
+      
+      // Set token in cookie
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax'
       });
+      
+      console.log('Cookie set, redirecting to protected');
+      console.log('=== JWT TEST END ===');
+      res.redirect('/protected');
     });
     
     // Test without redirect to see if session persists
