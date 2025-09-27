@@ -105,7 +105,7 @@ async function start() {
     if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
       app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
 
-      // Simplified OAuth callback for debugging
+      // OAuth callback that returns data instead of redirecting
       app.get('/auth/github/callback', (req, res, next) => {
         console.log('=== OAUTH CALLBACK REACHED ===');
         passport.authenticate('github', (err, user, info) => {
@@ -116,12 +116,12 @@ async function start() {
           
           if (err) {
             console.error('OAuth error:', err);
-            return res.redirect('/?error=oauth_error');
+            return res.json({ error: 'OAuth error', details: err.message });
           }
           
           if (!user) {
             console.error('No user returned from GitHub');
-            return res.redirect('/?error=no_user');
+            return res.json({ error: 'No user returned from GitHub' });
           }
           
           // Manually set session data
@@ -141,10 +141,18 @@ async function start() {
           req.session.save((saveErr) => {
             if (saveErr) {
               console.error('Session save error:', saveErr);
-              return res.redirect('/?error=session_save_failed');
+              return res.json({ error: 'Session save failed', details: saveErr.message });
             }
-            console.log('Session saved, redirecting to protected');
-            res.redirect('/protected');
+            console.log('Session saved successfully');
+            
+            // Return success response instead of redirecting
+            res.json({
+              success: true,
+              message: 'OAuth authentication successful',
+              user: req.user,
+              sessionId: req.sessionID,
+              redirectUrl: '/protected'
+            });
           });
         })(req, res, next);
       });
@@ -169,6 +177,7 @@ async function start() {
       console.log('Auth check - session user:', req.session.user);
       console.log('Auth check - session isAuthenticated:', req.session.isAuthenticated);
       console.log('Auth check - session ID:', req.sessionID);
+      console.log('Auth check - session keys:', Object.keys(req.session));
       
       // Check session-based authentication
       if (req.session.isAuthenticated && req.session.user) {
@@ -185,7 +194,8 @@ async function start() {
           sessionId: req.sessionID,
           sessionUser: !!req.session.user,
           sessionAuth: req.session.isAuthenticated,
-          sessionKeys: Object.keys(req.session)
+          sessionKeys: Object.keys(req.session),
+          fullSession: req.session
         }
       });
     }
@@ -269,6 +279,36 @@ async function start() {
           sessionId: req.sessionID,
           sessionData: req.session,
           sessionKeys: Object.keys(req.session)
+        });
+      });
+    });
+    
+    // Test OAuth simulation without redirect
+    app.get('/test/oauth-sim', (req, res) => {
+      // Simulate OAuth callback
+      req.session.user = {
+        id: 'github123',
+        username: 'githubuser',
+        displayName: 'GitHub User',
+        provider: 'github'
+      };
+      req.session.isAuthenticated = true;
+      
+      req.session.save((err) => {
+        if (err) {
+          return res.json({ error: 'Session save failed', err: err.message });
+        }
+        
+        // Instead of redirecting, return the protected data directly
+        res.json({
+          message: 'OAuth simulation successful',
+          user: req.user,
+          sessionId: req.sessionID,
+          sessionData: req.session,
+          protectedData: {
+            message: 'You are authenticated!',
+            user: req.user
+          }
         });
       });
     });
