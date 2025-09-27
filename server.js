@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger-static.json');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const GitHubStrategy = require('passport-github2').Strategy;
 dotenv.config();
@@ -22,10 +23,20 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Configure session store
+let sessionStore;
+if (process.env.MONGODB_URI) {
+  sessionStore = MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    touchAfter: 24 * 3600 // lazy session update
+  });
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'default_secret',
   resave: false,
   saveUninitialized: false,
+  store: sessionStore,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -36,13 +47,18 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.use(new GitHubStrategy({
-  clientID: process.env.GITHUB_CLIENT_ID,
-  clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  callbackURL: process.env.GITHUB_CALLBACK_URL
-}, function(accessToken, refreshToken, profile, done) {
-  return done(null, profile);
-}));
+// Only configure GitHub OAuth if environment variables are present
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
+  passport.use(new GitHubStrategy({
+    clientID: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    callbackURL: process.env.GITHUB_CALLBACK_URL
+  }, function(accessToken, refreshToken, profile, done) {
+    return done(null, profile);
+  }));
+} else {
+  console.warn('GitHub OAuth not configured - missing environment variables');
+}
 
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -70,14 +86,26 @@ async function start() {
     app.use('/recipes', require('./routes/recipes'));
     app.use('/users', require('./routes/users'));
 
-    app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
+    // OAuth routes - only available if GitHub OAuth is configured
+    if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_CALLBACK_URL) {
+      app.get('/auth/github', passport.authenticate('github', { scope: [ 'user:email' ] }));
 
-    app.get('/auth/github/callback',
-      passport.authenticate('github', { failureRedirect: '/' }),
-      (req, res) => {
-        res.redirect('/protected');
-      }
-    );
+      app.get('/auth/github/callback',
+        passport.authenticate('github', { failureRedirect: '/' }),
+        (req, res) => {
+          res.redirect('/protected');
+        }
+      );
+    } else {
+      // Fallback routes when OAuth is not configured
+      app.get('/auth/github', (req, res) => {
+        res.status(503).json({ error: 'GitHub OAuth not configured' });
+      });
+      
+      app.get('/auth/github/callback', (req, res) => {
+        res.status(503).json({ error: 'GitHub OAuth not configured' });
+      });
+    }
 
     app.get('/logout', (req, res) => {
       req.logout(() => {
