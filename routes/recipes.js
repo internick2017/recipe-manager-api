@@ -41,13 +41,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.status(401).json({ error: 'Unauthorized - Authentication required' });
-}
-
 /**
  * @swagger
  * /recipes:
@@ -104,7 +97,9 @@ function ensureAuthenticated(req, res, next) {
  *       500:
  *         description: Server error
  */
-router.post('/', ensureAuthenticated, async (req, res) => {
+router.post('/', (req, res, next) => {
+  req.app.locals.ensureAuthenticated(req, res, next);
+}, async (req, res) => {
   const { error } = recipeSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
@@ -181,7 +176,9 @@ router.post('/', ensureAuthenticated, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', ensureAuthenticated, async (req, res) => {
+router.put('/:id', (req, res, next) => {
+  req.app.locals.ensureAuthenticated(req, res, next);
+}, async (req, res) => {
   const { error } = recipeSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
   try {
@@ -198,7 +195,9 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
   }
 });
 
-router.delete('/:id', ensureAuthenticated, async (req, res) => {
+router.delete('/:id', (req, res, next) => {
+  req.app.locals.ensureAuthenticated(req, res, next);
+}, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const { id } = req.params;

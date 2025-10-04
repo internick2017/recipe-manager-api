@@ -154,12 +154,11 @@ async function start() {
       }
     }
 
+    app.locals.ensureAuthenticated = ensureAuthenticated;
+
     app.get('/protected', ensureAuthenticated, (req, res) => {
       res.json({ message: 'You are authenticated!', user: req.user });
     });
-    
-    
-    
     
     app.get('/', (req, res) => {
       res.json({ message: 'Recipe Manager API', version: '1.0.0' });
